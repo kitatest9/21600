@@ -5,24 +5,27 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup Password
         run: |
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
-
-      - name: Tailscale Action
-        uses: tailscale/github-action@v2
-        with:
-          authkey: tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc
-          hostname: mac-vps
-
-      - name: Enable VNC (Screen Sharing)
+          
+      - name: Install Tailscale via Brew
+        run: |
+          # Brew sabse reliable hai Mac par
+          brew install tailscale
+          
+      - name: Start Tailscale Service
+        run: |
+          # Service start karke login karna
+          sudo tailscaled --tun=userspace-networking &
+          sleep 10
+          # Nayi key yahan dalein ya secret use karein
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_KEY }} --hostname=mac-vps
+          
+      - name: Enable Screen Sharing
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          echo "Mac VPS is Live!"
-
+          echo "Mac VPS Active! Check Tailscale Dashboard for IP."
+          
       - name: Keep Alive
         run: sleep 21600
-        
