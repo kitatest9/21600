@@ -7,29 +7,28 @@ jobs:
     steps:
       - name: Setup Password
         run: |
+          # Password '1111' set kar raha hai
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
           
-      - name: Install Tailscale (Fast Method)
+      - name: Install Tailscale (Official Script)
         run: |
-          # Direct stable binary download
-          curl -fsSL https://pkgs.tailscale.com -o tailscale.zip
-          unzip tailscale.zip
-          # Sirf binary ko extract karke use kar rahe hain
-          sudo cp -r Tailscale-*.app /Applications/Tailscale.app
+          # Ye script unzip ka lafda khatam kar dega
+          curl -fsSL https://tailscale.com | sh
           
-      - name: Connect Tailscale
+      - name: Start and Connect Tailscale
         run: |
-          # Background mein service start karna
-          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled --tun=userspace-networking &
-          sleep 5
+          # Tailscaled service ko background mein chalana
+          sudo tailscaled --tun=userspace-networking &
+          sleep 10
           # Aapki di hui key use ho rahi hai
-          sudo /Applications/Tailscale.app/Contents/MacOS/tailscale up --authkey=tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc --hostname=mac-vps
+          sudo tailscale up --authkey=tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc --hostname=mac-vps
           
-      - name: Enable Screen Sharing
+      - name: Enable Screen Sharing (VNC)
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          echo "VPS is LIVE! Use Tailscale IP in VNC Viewer."
+          echo "Success! Ab apne Mobile se Tailscale IP par connect karein."
           
       - name: Keep Alive
         run: |
+          # 6 ghante tak active rahega
           sleep 21600
