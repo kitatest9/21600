@@ -5,30 +5,24 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Password
         run: |
-          # Password '1111' set kar raha hai
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
-          
-      - name: Install Tailscale (Official Script)
-        run: |
-          # Ye script unzip ka lafda khatam kar dega
-          curl -fsSL https://tailscale.com | sh
-          
-      - name: Start and Connect Tailscale
-        run: |
-          # Tailscaled service ko background mein chalana
-          sudo tailscaled --tun=userspace-networking &
-          sleep 10
-          # Aapki di hui key use ho rahi hai
-          sudo tailscale up --authkey=tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc --hostname=mac-vps
-          
-      - name: Enable Screen Sharing (VNC)
+
+      - name: Tailscale Action
+        uses: tailscale/github-action@v2
+        with:
+          authkey: tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc
+          hostname: mac-vps
+
+      - name: Enable VNC (Screen Sharing)
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          echo "Success! Ab apne Mobile se Tailscale IP par connect karein."
-          
+          echo "Mac VPS is Live!"
+
       - name: Keep Alive
-        run: |
-          # 6 ghante tak active rahega
-          sleep 21600
+        run: sleep 21600
+        
