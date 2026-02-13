@@ -5,27 +5,35 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Setup Password
+      - name: Setup User Password
         run: |
+          # System user 'runner' ka password set karna
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
           
       - name: Install Tailscale via Brew
         run: |
-          # Brew sabse reliable hai Mac par
           brew install tailscale
           
-      - name: Start Tailscale Service
+      - name: Start Tailscale
         run: |
-          # Service start karke login karna
           sudo tailscaled --tun=userspace-networking &
           sleep 10
-          # Nayi key yahan dalein ya secret use karein
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_KEY }} --hostname=mac-vps
+          # Nayi reusable key secret mein lazmi update karein
+          sudo tailscale up --authkey=tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc --hostname=mac-vps
           
-      - name: Enable Screen Sharing
+      - name: Configure VNC (No Auth Error)
         run: |
+          # Remote Management activate karna
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          echo "Mac VPS Active! Check Tailscale Dashboard for IP."
+          
+          # VNC Legacy Password '1111' set karna (Authentication fix)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvncpw -vncpw 1111
+          
+          # Settings apply karne ke liye restart
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
+          echo "VPS is ready! Password is 1111"
           
       - name: Keep Alive
         run: sleep 21600
+        
