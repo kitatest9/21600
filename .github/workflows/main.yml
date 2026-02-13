@@ -7,10 +7,9 @@ jobs:
     steps:
       - name: Setup User Password
         run: |
-          # System user 'runner' ka password set karna
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
           
-      - name: Install Tailscale via Brew
+      - name: Install Tailscale
         run: |
           brew install tailscale
           
@@ -18,22 +17,21 @@ jobs:
         run: |
           sudo tailscaled --tun=userspace-networking &
           sleep 10
-          # Nayi reusable key secret mein lazmi update karein
-          sudo tailscale up --authkey=tskey-auth-kMH4hKgqVY11CNTRL-guT4SrPpK2aoRrxjCWRt1aMZYMREkinc --hostname=mac-vps
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_KEY }} --hostname=mac-vps
           
-      - name: Configure VNC (No Auth Error)
+      - name: Fix Black Screen & Enable VNC
         run: |
-          # Remote Management activate karna
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
+          # Screen resolution aur Display initialize karne ki koshish
+          sudo /usr/bin/defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysStartOnConsole -bool true
           
-          # VNC Legacy Password '1111' set karna (Authentication fix)
+          # VNC Setup with Legacy Support
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvncpw -vncpw 1111
           
-          # Settings apply karne ke liye restart
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent
-          echo "VPS is ready! Password is 1111"
+          # Refreshing the UI server
+          sudo killall -9 WindowServer || true
+          echo "Display initialized. If black, wait 30 seconds and reconnect."
           
       - name: Keep Alive
         run: sleep 21600
-        
