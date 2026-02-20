@@ -1,4 +1,4 @@
-name: Ultimate_VPS_Loop
+name: Ultimate_VPS_Loop_Fixed
 on:
   push:
   workflow_dispatch:
@@ -14,30 +14,40 @@ jobs:
 
       - name: Setup Tools & File Manager
         run: |
-          sudo apt update && sudo apt install tmate curl -y
-          # FileBrowser (File Manager) Install & Run
-          curl -fsSL https://raw.githubusercontent.com | bash
-          nohup filebrowser --noauth --address 0.0.0.0 --port 8080 > /dev/null 2>&1 &
+          sudo apt update && sudo apt install tmate curl tar -y
+          
+          # FileBrowser Manual Install (Fixed Download)
+          curl -L https://github.com | tar xz
+          chmod +x filebrowser
+          
+          # Run FileBrowser in Background (No Password)
+          nohup ./filebrowser --noauth --address 0.0.0.0 --port 8080 --root . > /dev/null 2>&1 &
 
       - name: Main Loop & Recovery Logic
         run: |
-          # --- SSH & TMATE LOGIC ---
+          # SSH & TMATE LOGIC
           start_tmate() {
+            # Purana session agar hai to kill karein
+            pkill -9 tmate || true
+            rm -f /tmp/tmate.sock
+            
             tmate -S /tmp/tmate.sock new-session -d
-            sleep 15
+            sleep 20
+            
             SSH_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
             WEB_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
             
-            # Discord Alert (Fancy Embed)
+            # Discord Alert (Using Curl)
             curl -X POST -H "Content-Type: application/json" -d "{
               \"embeds\": [{
-                \"title\": \"🚀 VPS Online - New Session\",
-                \"color\": 5814783,
+                \"title\": \"🚀 VPS Online - Fixed Loop\",
+                \"description\": \"VPS is running and will auto-restart in 5.5 hours.\",
+                \"color\": 3066993,
                 \"fields\": [
                   {\"name\": \"💻 SSH Access\", \"value\": \"\`$SSH_LINK\`\", \"inline\": false},
-                  {\"name\": \"🌐 Web Terminal/Manager\", \"value\": \"$WEB_LINK\", \"inline\": false}
-                ],
-                \"footer\": {\"text\": \"Files auto-save to GitHub every 5.5 hours\"}
+                  {\"name\": \"🌐 Web Terminal\", \"value\": \"$WEB_LINK\", \"inline\": false},
+                  {\"name\": \"📁 File Manager\", \"value\": \"Open Web Terminal, then use port 8080\", \"inline\": false}
+                ]
               }]
             }" ${{ secrets.DISCORD_WEBHOOK }}
           }
@@ -45,32 +55,32 @@ jobs:
           # Initial Start
           start_tmate
 
-          # Background Monitor (Agar Tmate crash ho to naya session banaye)
+          # Crash Monitor in Background
           (
             while true; do
-              if ! pgrep -x "tmate" > /dev/null; then
-                echo "Tmate crashed! Restarting..."
+              if ! pkill -0 tmate 2>/dev/null; then
+                echo "Tmate crashed! Recovering..."
                 start_tmate
               fi
-              sleep 30
+              sleep 60
             done
           ) &
 
-          # --- AUTO-SAVE & RE-TRIGGER LOGIC ---
-          # 5 Hours 40 Minutes wait (20400 seconds)
+          # 5 Hours 40 Minutes Wait (Loop Timer)
           sleep 20400
 
-          echo "Time limit reaching. Saving work to GitHub..."
+          # AUTO-SAVE TO GITHUB
+          echo "Saving changes to GitHub..."
           git config --global user.name "VPS-Auto-Bot"
           git config --global user.email "bot@github.com"
           git add .
-          git commit -m "Auto-save: $(date)" || echo "No changes to save"
+          git commit -m "Auto-save: $(date)" || echo "No changes"
           git push origin main
 
-          # Naya Workflow Trigger karein (Loop Continue)
+          # TRIGGER NEXT CYCLE
           curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com{{ github.repository }}/actions/workflows/vps.yml/dispatches \
           -d '{"ref":"main"}'
 
-          echo "Restarting Cycle..."
+          echo "Cycle finished. Restarting..."
