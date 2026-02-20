@@ -1,4 +1,4 @@
-name: Ultimate_VPS_Loop_Fixed
+name: VPS_Ultimate_Stable
 on:
   push:
   workflow_dispatch:
@@ -14,73 +14,71 @@ jobs:
 
       - name: Setup Tools & File Manager
         run: |
-          sudo apt update && sudo apt install tmate curl tar -y
+          sudo apt-get update && sudo apt-get install tmate curl wget tar -y
           
-          # FileBrowser Manual Install (Fixed Download)
-          curl -L https://github.com | tar xz
-          chmod +x filebrowser
+          # Filebrowser Official Installation (Fixed)
+          curl -fsSL https://raw.githubusercontent.com | bash
           
-          # Run FileBrowser in Background (No Password)
-          nohup ./filebrowser --noauth --address 0.0.0.0 --port 8080 --root . > /dev/null 2>&1 &
+          # Background mein Filebrowser start karein
+          nohup filebrowser --noauth --address 0.0.0.0 --port 8080 --root . > /dev/null 2>&1 &
 
       - name: Main Loop & Recovery Logic
         run: |
-          # SSH & TMATE LOGIC
+          # --- Tmate Start Function ---
           start_tmate() {
-            # Purana session agar hai to kill karein
+            # Purana session saaf karein
             pkill -9 tmate || true
             rm -f /tmp/tmate.sock
             
+            # Naya session
             tmate -S /tmp/tmate.sock new-session -d
-            sleep 20
+            sleep 20 # Links generate hone ka wait
             
             SSH_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
             WEB_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
             
-            # Discord Alert (Using Curl)
-            curl -X POST -H "Content-Type: application/json" -d "{
-              \"embeds\": [{
-                \"title\": \"🚀 VPS Online - Fixed Loop\",
-                \"description\": \"VPS is running and will auto-restart in 5.5 hours.\",
-                \"color\": 3066993,
-                \"fields\": [
-                  {\"name\": \"💻 SSH Access\", \"value\": \"\`$SSH_LINK\`\", \"inline\": false},
-                  {\"name\": \"🌐 Web Terminal\", \"value\": \"$WEB_LINK\", \"inline\": false},
-                  {\"name\": \"📁 File Manager\", \"value\": \"Open Web Terminal, then use port 8080\", \"inline\": false}
-                ]
-              }]
-            }" ${{ secrets.DISCORD_WEBHOOK }}
+            # Discord Notification
+            if [ ! -z "$SSH_LINK" ]; then
+              curl -X POST -H "Content-Type: application/json" -d "{
+                \"embeds\": [{
+                  \"title\": \"🚀 VPS Ready!\",
+                  \"description\": \"Looping enabled. Auto-save every 5.5 hours.\",
+                  \"color\": 3066993,
+                  \"fields\": [
+                    {\"name\": \"💻 SSH Access\", \"value\": \"\`$SSH_LINK\`\", \"inline\": false},
+                    {\"name\": \"🌐 Web Interface\", \"value\": \"$WEB_LINK\", \"inline\": false}
+                  ]
+                }]
+              }" ${{ secrets.DISCORD_WEBHOOK }}
+            fi
           }
 
           # Initial Start
           start_tmate
 
-          # Crash Monitor in Background
+          # Crash Recovery Monitor (Background)
           (
             while true; do
-              if ! pkill -0 tmate 2>/dev/null; then
-                echo "Tmate crashed! Recovering..."
+              if ! pgrep -x "tmate" > /dev/null; then
                 start_tmate
               fi
               sleep 60
             done
           ) &
 
-          # 5 Hours 40 Minutes Wait (Loop Timer)
-          sleep 20400
+          # --- Cycle Timer (5.5 Hours) ---
+          sleep 20000
 
-          # AUTO-SAVE TO GITHUB
-          echo "Saving changes to GitHub..."
-          git config --global user.name "VPS-Auto-Bot"
+          # Auto-Save to GitHub
+          git config --global user.name "VPS-Bot"
           git config --global user.email "bot@github.com"
           git add .
-          git commit -m "Auto-save: $(date)" || echo "No changes"
+          git commit -m "Auto-save changes" || echo "Nothing to save"
           git push origin main
 
-          # TRIGGER NEXT CYCLE
+          # Self-Trigger Loop
           curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com{{ github.repository }}/actions/workflows/vps.yml/dispatches \
           -d '{"ref":"main"}'
-
-          echo "Cycle finished. Restarting..."
+          
