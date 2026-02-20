@@ -1,37 +1,76 @@
-name: Mobile-Mac-VPS
-on: workflow_dispatch
+name: Ultimate_VPS_Loop
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: macos-latest
+  run-vps:
+    runs-on: ubuntu-latest
     steps:
-      - name: Setup User Password
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Tools & File Manager
         run: |
-          sudo sysadminctl -adminUser runner -adminPassword "" -password "1111"
-          
-      - name: Install Tailscale
+          sudo apt update && sudo apt install tmate curl -y
+          # FileBrowser (File Manager) Install & Run
+          curl -fsSL https://raw.githubusercontent.com | bash
+          nohup filebrowser --noauth --address 0.0.0.0 --port 8080 > /dev/null 2>&1 &
+
+      - name: Main Loop & Recovery Logic
         run: |
-          brew install tailscale
-          
-      - name: Start Tailscale
-        run: |
-          sudo tailscaled --tun=userspace-networking &
-          sleep 10
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_KEY }} --hostname=mac-vps
-          
-      - name: Fix Black Screen & Enable VNC
-        run: |
-          # Screen resolution aur Display initialize karne ki koshish
-          sudo /usr/bin/defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysStartOnConsole -bool true
-          
-          # VNC Setup with Legacy Support
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvncpw -vncpw 1111
-          
-          # Refreshing the UI server
-          sudo killall -9 WindowServer || true
-          echo "Display initialized. If black, wait 30 seconds and reconnect."
-          
-      - name: Keep Alive
-        run: sleep 21600
+          # --- SSH & TMATE LOGIC ---
+          start_tmate() {
+            tmate -S /tmp/tmate.sock new-session -d
+            sleep 15
+            SSH_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
+            WEB_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
+            
+            # Discord Alert (Fancy Embed)
+            curl -X POST -H "Content-Type: application/json" -d "{
+              \"embeds\": [{
+                \"title\": \"🚀 VPS Online - New Session\",
+                \"color\": 5814783,
+                \"fields\": [
+                  {\"name\": \"💻 SSH Access\", \"value\": \"\`$SSH_LINK\`\", \"inline\": false},
+                  {\"name\": \"🌐 Web Terminal/Manager\", \"value\": \"$WEB_LINK\", \"inline\": false}
+                ],
+                \"footer\": {\"text\": \"Files auto-save to GitHub every 5.5 hours\"}
+              }]
+            }" ${{ secrets.DISCORD_WEBHOOK }}
+          }
+
+          # Initial Start
+          start_tmate
+
+          # Background Monitor (Agar Tmate crash ho to naya session banaye)
+          (
+            while true; do
+              if ! pgrep -x "tmate" > /dev/null; then
+                echo "Tmate crashed! Restarting..."
+                start_tmate
+              fi
+              sleep 30
+            done
+          ) &
+
+          # --- AUTO-SAVE & RE-TRIGGER LOGIC ---
+          # 5 Hours 40 Minutes wait (20400 seconds)
+          sleep 20400
+
+          echo "Time limit reaching. Saving work to GitHub..."
+          git config --global user.name "VPS-Auto-Bot"
+          git config --global user.email "bot@github.com"
+          git add .
+          git commit -m "Auto-save: $(date)" || echo "No changes to save"
+          git push origin main
+
+          # Naya Workflow Trigger karein (Loop Continue)
+          curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com{{ github.repository }}/actions/workflows/vps.yml/dispatches \
+          -d '{"ref":"main"}'
+
+          echo "Restarting Cycle..."
