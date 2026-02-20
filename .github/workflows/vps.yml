@@ -1,4 +1,4 @@
-name: VPS_Ultimate_Stable
+name: VPS_Final_No_Error
 on:
   push:
   workflow_dispatch:
@@ -7,76 +7,58 @@ jobs:
   run-vps:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Setup Tools & File Manager
+      - name: Setup Tmate & Server
         run: |
-          sudo apt-get update && sudo apt-get install tmate curl wget tar -y
-          
-          # Filebrowser Official Installation (Fixed)
-          curl -fsSL https://raw.githubusercontent.com | bash
-          
-          # Background mein Filebrowser start karein
-          nohup filebrowser --noauth --address 0.0.0.0 --port 8080 --root . > /dev/null 2>&1 &
+          sudo apt-get update && sudo apt-get install tmate curl -y
+          # Simple Python File Manager (Port 8080)
+          nohup python3 -m http.server 8080 > /dev/null 2>&1 &
 
-      - name: Main Loop & Recovery Logic
+      - name: Loop & Discord Logic
         run: |
-          # --- Tmate Start Function ---
-          start_tmate() {
-            # Purana session saaf karein
+          # --- Start Tmate Function ---
+          start_vps() {
             pkill -9 tmate || true
-            rm -f /tmp/tmate.sock
-            
-            # Naya session
             tmate -S /tmp/tmate.sock new-session -d
-            sleep 20 # Links generate hone ka wait
+            sleep 20
             
             SSH_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
             WEB_LINK=$(tmate -S /tmp/tmate.sock display -p '#{tmate_web}')
             
-            # Discord Notification
-            if [ ! -z "$SSH_LINK" ]; then
-              curl -X POST -H "Content-Type: application/json" -d "{
-                \"embeds\": [{
-                  \"title\": \"🚀 VPS Ready!\",
-                  \"description\": \"Looping enabled. Auto-save every 5.5 hours.\",
-                  \"color\": 3066993,
-                  \"fields\": [
-                    {\"name\": \"💻 SSH Access\", \"value\": \"\`$SSH_LINK\`\", \"inline\": false},
-                    {\"name\": \"🌐 Web Interface\", \"value\": \"$WEB_LINK\", \"inline\": false}
-                  ]
-                }]
-              }" ${{ secrets.DISCORD_WEBHOOK }}
-            fi
+            # Discord Message
+            curl -X POST -H "Content-Type: application/json" -d "{
+              \"content\": \"🚀 **VPS Live!**\n💻 **SSH:** \`$SSH_LINK\`\n🌐 **Terminal:** $WEB_LINK\n📁 **Files:** $WEB_LINK (Terminal mein 8080 port forward karein)\"
+            }" ${{ secrets.DISCORD_WEBHOOK }}
           }
 
           # Initial Start
-          start_tmate
+          start_vps
 
-          # Crash Recovery Monitor (Background)
+          # Background Recovery (Monitor)
           (
             while true; do
               if ! pgrep -x "tmate" > /dev/null; then
-                start_tmate
+                start_vps
               fi
               sleep 60
             done
           ) &
 
-          # --- Cycle Timer (5.5 Hours) ---
+          # 5.5 Hours Wait
           sleep 20000
 
           # Auto-Save to GitHub
           git config --global user.name "VPS-Bot"
           git config --global user.email "bot@github.com"
           git add .
-          git commit -m "Auto-save changes" || echo "Nothing to save"
+          git commit -m "Backup: $(date)" || echo "Nothing"
           git push origin main
 
-          # Self-Trigger Loop
+          # Restart Loop
           curl -X POST -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com{{ github.repository }}/actions/workflows/vps.yml/dispatches \
