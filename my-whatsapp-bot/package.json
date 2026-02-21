@@ -1,0 +1,20 @@
+{
+  "name": "my-whatsapp-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@kelvdra/baileys": "^1.0.3-rc.2",
+    "axios": "^1.13.5",
+    "calk": "^0.0.1-security",
+    "chalk": "^5.6.2",
+    "express": "^5.2.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
